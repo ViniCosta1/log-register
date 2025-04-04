@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'docker:20.10'  // Imagem oficial do Docker
+            args '-v /var/run/docker.sock:/var/run/docker.sock'  // Monta o socket do Docker
+        }
+    }
 
     // Variáveis de ambiente para facilitar a configuração
     environment {
