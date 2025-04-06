@@ -4,7 +4,7 @@ pipeline {
         AWS_ACCOUNT_ID="416271425097"
         AWS_DEFAULT_REGION="sa-east-1"
         IMAGE_REPO_NAME="jenkins-repo-prod"
-        IMAGE_TAG="unimar-project/api-ai:v${env.BUILD_NUMBER}"
+        IMAGE_TAG="v${env.BUILD_NUMBER}"
         REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}"
     }
    
