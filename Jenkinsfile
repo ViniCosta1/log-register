@@ -1,59 +1,47 @@
 pipeline {
-    agent any  // Usa o nó padrão (EC2)
-
+    agent any
     environment {
-        AWS_REGION = 'sa-east-1'
-        ECR_REPO = '416271425097.dkr.ecr.sa-east-1.amazonaws.com/jenkins-repo-prod'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
-        GITHUB_CREDENTIALS = 'jenkins-github'
-        AWS_CREDENTIALS = 'aws-jenkins'
+        AWS_ACCOUNT_ID="416271425097"
+        AWS_DEFAULT_REGION="sa-east-1"
+        IMAGE_REPO_NAME="jenkins-repo-prod"
+        IMAGE_TAG="${env.BUILD_NUMBER}"
+        REPOSITORY_URI = "416271425097.dkr.ecr.sa-east-1.amazonaws.com/jenkins-repo-prod"
     }
-
+   
     stages {
-        stage('Checkout') {
+        
+         stage('Logging into AWS ECR') {
             steps {
-                git branch: 'master', 
-                    url: 'https://github.com/ViniCosta1/log-register.git', 
-                    credentialsId: "${GITHUB_CREDENTIALS}"
-            }
-        }
-
-        stage('Build') {
-            steps {
-                echo 'Building...'
-                sh 'docker build -t log-register:${IMAGE_TAG} .'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                echo 'Testing...'
-                // Adicione comandos de teste aqui, se houver
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                echo 'Deploying...'
-                withAWS(credentials: "${AWS_CREDENTIALS}", region: "${AWS_REGION}") {
-                    sh 'aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}'
-                    sh 'docker tag log-register:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}'
-                    sh 'docker push ${ECR_REPO}:${IMAGE_TAG}'
+                script {
+                sh """aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"""
                 }
+                 
             }
         }
+        
+        stage('Cloning Git') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '', url: 'https://github.com/sd031/aws_codebuild_codedeploy_nodeJs_demo.git']]])     
+            }
+        }
+  
+    // Building Docker images
+    stage('Building image') {
+      steps{
+        script {
+          dockerImage = docker.build "${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+        }
+      }
     }
-
-    post {
-        always {
-            echo 'Cleaning up...'
-            sh 'docker rmi log-register:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG} || true'
+   
+    // Uploading Docker images into AWS ECR
+    stage('Pushing to ECR') {
+     steps{  
+         script {
+                sh """docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:$IMAGE_TAG"""
+                sh """docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}"""
+         }
         }
-        success {
-            echo 'Pipeline concluído com sucesso!'
-        }
-        failure {
-            echo 'Falha no pipeline. Verifique os logs.'
-        }
+      }
     }
 }
